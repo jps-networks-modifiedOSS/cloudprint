@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import rest
 import platform
 import cups
