@@ -18,6 +18,7 @@ Source0:        %{name}-%{version}-%{alphatag}.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildArch:      noarch
+BuildRequires:  python >= 2.6
 BuildRequires:  system-config-printer-libs
 Requires:       system-config-printer-libs
 
