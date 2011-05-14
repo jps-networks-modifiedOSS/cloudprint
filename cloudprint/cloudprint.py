@@ -364,11 +364,15 @@ def main():
             import daemon
         except ImportError:
             print 'daemon module required for -d'
-            print '\tpip install daemon'
+            print '\tyum install python-daemon, or apt-get install python-daemon, or pip install python-daemon'
             sys.exit(1)
-        daemon.daemonize(pidfile)
+        
+        import lockfile
+        context = daemon.DaemonContext(pidfile=lockfile.FileLock(pidfile))
 
-    process_jobs(cups_connection, cpp, printers)
+
+        with context:
+            process_jobs(cups_connection, cpp, printers)
 
 
 if __name__ == '__main__':

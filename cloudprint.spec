@@ -20,7 +20,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
 BuildRequires:  python >= 2.6
 BuildRequires:  system-config-printer-libs
-Requires:       system-config-printer-libs
+Requires:       system-config-printer-libs, python-daemon
 
 %description
 Cloudprint lets you print from any Google Cloud Print-enabled device
