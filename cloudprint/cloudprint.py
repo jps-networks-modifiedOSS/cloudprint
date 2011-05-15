@@ -309,6 +309,21 @@ def process_jobs(cups_connection, cpp, printers):
                 process_job(cups_connection, cpp, printer, job)
         time.sleep(60)
 
+class App(object):
+    def __init__(self, cups_connection=None, cpp=None, printers=None, pidfile_path=None):
+        self.cups_connection = cups_connection
+        self.cpp = cpp
+        self.printers = printers
+        self.pidfile_path = pidfile_path
+        self.stdin_path = '/dev/null'
+        self.stdout_path = '/dev/tty'
+        self.stderr_path = '/dev/tty'
+        self.pidfile_timeout = 5
+
+    def run(self):
+        process_jobs(self.cups_connection, self.cpp, self.printers)
+
+
 def usage():
     print sys.argv[0] + ' [-d][-l][-h] [-p pid_file]'
     print '-d\t\t: enable daemon mode (requires the daemon module)'
@@ -320,19 +335,19 @@ def main():
     opts, args = getopt.getopt(sys.argv[1:], 'dlhp:')
     daemon = False
     logout = False
-    pidfile = None
+    pidfile_path = None
     for o, a in opts:
         if o == '-d':
             daemon = True
         elif o == '-l':
             logout = True
         elif o == '-p':
-            pidfile = a
+            pidfile_path = a
         elif o =='-h':
             usage()
             sys.exit()
-    if not pidfile:
-        pidfile = 'cloudprint.pid'
+    if not pidfile_path:
+        pidfile_path = 'cloudprint.pid'
 
     cups_connection = cups.Connection()
     cpp = CloudPrintProxy()
@@ -361,19 +376,20 @@ def main():
 
     if daemon:
         try:
-            import daemon
+            from daemon import runner
         except ImportError:
             print 'daemon module required for -d'
             print '\tyum install python-daemon, or apt-get install python-daemon, or pip install python-daemon'
             sys.exit(1)
         
-        import lockfile
-        context = daemon.DaemonContext(pidfile=lockfile.FileLock(pidfile))
-
-
-        with context:
-            process_jobs(cups_connection, cpp, printers)
-
+        app = App(cups_connection=cups_connection,
+                  cpp=cpp, printers=printers,
+                  pidfile_path=os.path.abspath(pidfile_path))
+        sys.argv=[sys.argv[0], 'start']
+        daemon_runner = runner.DaemonRunner(app)
+        daemon_runner.do_action()
+    else:
+        process_jobs(cups_connection, cpp, printers)
 
 if __name__ == '__main__':
     main()
