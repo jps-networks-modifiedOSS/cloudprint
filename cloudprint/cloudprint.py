@@ -249,7 +249,11 @@ def process_job(cups_connection, cpp, printer, job):
         'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM',
         'Authorization' : 'GoogleLogin auth=%s' % cpp.get_auth()
     })
-    pdf = urllib2.urlopen(request)
+    try:
+        pdf = urllib2.urlopen(request)
+    except urllib2.HTTPError, e:
+        print(e)
+        return
     tmp = tempfile.NamedTemporaryFile(delete=False)
     shutil.copyfileobj(pdf, tmp)
     tmp.flush()
@@ -263,8 +267,20 @@ def process_job(cups_connection, cpp, printer, job):
     options = dict( (str(k), str(v)) for k, v in options.items() )
 
     cpp.finish_job(job['id'])
-
-    cups_connection.printFile(printer.name, tmp.name, job['title'], options)
+    print('Printing to printer:[%s] file_name:[%s] job:[%s] options:[%s]' % (repr(printer.name), repr(tmp.name), repr(job['title']), repr(options)))
+    attempts = 0
+    while 1:
+        attempts += 1
+        try:
+            cups_connection.printFile(printer.name, tmp.name, job['title'], options)
+            break
+        except cups.IPPError, e:
+            print(e)
+            if attempts >= 5:
+                raise e
+            print('Sleeping for 5 sec then retrying...')
+            time.sleep(5)
+            cups_connection = cups.Connection()
     os.unlink(tmp.name)
 
 def process_jobs(cups_connection, cpp, printers):
