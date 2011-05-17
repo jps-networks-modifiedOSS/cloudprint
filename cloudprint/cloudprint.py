@@ -41,25 +41,41 @@ class CloudPrintProxy(object):
             password = getpass.getpass()
 
             r = rest.REST('https://www.google.com', debug=False)
-            auth_response = r.post(
-                CLIENT_LOGIN_URL,
-                {
-                    'accountType': 'GOOGLE',
-                    'Email': username,
-                    'Passwd': password,
-                    'service': PRINT_CLOUD_SERICE_ID,
-                    'source': SOURCE,
-                },
-                'application/x-www-form-urlencoded')
+            try:
+                auth_response = r.post(
+                    CLIENT_LOGIN_URL,
+                    {
+                        'accountType': 'GOOGLE',
+                        'Email': username,
+                        'Passwd': password,
+                        'service': PRINT_CLOUD_SERICE_ID,
+                        'source': SOURCE,
+                    },
+                    'application/x-www-form-urlencoded')
+            except rest.REST.RESTException, e:
+                if 'InvalidSecondFactor' in e.msg:
+                    raise rest.REST.RESTException(
+                        '2-Step',
+                        '403',
+                        'You have 2-Step authentication enabled on your '
+                        'account. \n\nPlease visit '
+                        'https://www.google.com/accounts/IssuedAuthSubTokens '
+                        'to generate an application-specific password.'
+                    )
+
             self.set_auth(auth_response['Auth'])
             return self.auth
 
     def get_saved_auth(self):
         if os.path.exists(self.auth_path):
-            auth_file =  open(self.auth_path)
+            auth_file = open(self.auth_path)
             self.auth = auth_file.read()
             auth_file.close()
             return self.auth
+
+    def del_saved_auth(self):
+        if os.path.exists(self.auth_path):
+            os.unlink(self.auth_path)
 
     def set_auth(self, auth):
             self.auth = auth
@@ -191,6 +207,19 @@ class CloudPrintProxy(object):
             { 'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM' },
             )
 
+    def fail_job(self, job_id):
+        r = self.get_rest()
+        r.post(
+            PRINT_CLOUD_URL + '/control',
+            {
+                'output' : 'json',
+                'jobid': job_id,
+                'status': 'ERROR',
+            },
+            'application/x-www-form-urlencoded',
+            { 'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM' },
+            )
+
 class PrinterProxy(object):
     def __init__(self, cpp, printer_id, name):
         self.cpp = cpp
@@ -249,39 +278,30 @@ def process_job(cups_connection, cpp, printer, job):
         'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM',
         'Authorization' : 'GoogleLogin auth=%s' % cpp.get_auth()
     })
+
     try:
         pdf = urllib2.urlopen(request)
-    except urllib2.HTTPError, e:
-        print(e)
-        return
-    tmp = tempfile.NamedTemporaryFile(delete=False)
-    shutil.copyfileobj(pdf, tmp)
-    tmp.flush()
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        shutil.copyfileobj(pdf, tmp)
+        tmp.flush()
 
-    request = urllib2.Request(job['ticketUrl'], headers={
-        'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM',
-        'Authorization' : 'GoogleLogin auth=%s' % cpp.get_auth()
-    })
-    options = json.loads(urllib2.urlopen(request).read())
-    del options['request']
-    options = dict( (str(k), str(v)) for k, v in options.items() )
+        request = urllib2.Request(job['ticketUrl'], headers={
+            'X-CloudPrint-Proxy' : 'ArmoooIsAnOEM',
+            'Authorization' : 'GoogleLogin auth=%s' % cpp.get_auth()
+        })
+        options = json.loads(urllib2.urlopen(request).read())
+        del options['request']
+        options = dict( (str(k), str(v)) for k, v in options.items() )
 
-    cpp.finish_job(job['id'])
-    print('Printing to printer:[%s] file_name:[%s] job:[%s] options:[%s]' % (repr(printer.name), repr(tmp.name), repr(job['title']), repr(options)))
-    attempts = 0
-    while 1:
-        attempts += 1
-        try:
-            cups_connection.printFile(printer.name, tmp.name, job['title'], options)
-            break
-        except cups.IPPError, e:
-            print(e)
-            if attempts >= 5:
-                raise e
-            print('Sleeping for 5 sec then retrying...')
-            time.sleep(5)
-            cups_connection = cups.Connection()
-    os.unlink(tmp.name)
+        cpp.finish_job(job['id'])
+
+        cups_connection.printFile(printer.name, tmp.name, job['title'], options)
+        os.unlink(tmp.name)
+        print "SUCCESS ",job['title'].encode('unicode-escape')
+
+    except:
+        cpp.fail_job(job['id'])
+        print "ERROR",job['title'].encode('unicode-escape')
 
 def process_jobs(cups_connection, cpp, printers):
     while True:
@@ -291,18 +311,22 @@ def process_jobs(cups_connection, cpp, printers):
         time.sleep(60)
 
 def usage():
-    print sys.argv[0] + ' [-d] [-p pid_file] [-h]'
+    print sys.argv[0] + ' [-d][-l][-h] [-p pid_file]'
     print '-d\t\t: enable daemon mode (requires the daemon module)'
+    print '-l\t\t: logout of the google account'
     print '-p pid_file\t: path to write the pid to (default cloudprint.pid)'
     print '-h\t\t: display this help'
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'dhp:')
+    opts, args = getopt.getopt(sys.argv[1:], 'dlhp:')
     daemon = False
+    logout = False
     pidfile = None
     for o, a in opts:
         if o == '-d':
             daemon = True
+        elif o == '-l':
+            logout = True
         elif o == '-p':
             pidfile = a
         elif o =='-h':
@@ -313,6 +337,11 @@ def main():
 
     cups_connection = cups.Connection()
     cpp = CloudPrintProxy()
+
+    if logout:
+        cpp.del_saved_auth()
+        print 'logged out'
+        return
 
     #try to login
     while True:
@@ -336,6 +365,7 @@ def main():
             import daemon
         except ImportError:
             print 'daemon module required for -d'
+            print '\tpip install daemon'
             sys.exit(1)
         daemon.daemonize(pidfile)
 
