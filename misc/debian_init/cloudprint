@@ -15,7 +15,7 @@
 case $1 in
    start)
       echo -n "Starting Google Cloud Print: "
-      sudo -u cloudprint /home/cloudprint/cloudprint/cloudprint.py -d -p /home/cloudprint/cloudprint.pid
+      sudo -u cloudprint cloudprint -d -p /home/cloudprint/cloudprint.pid
    ;;
    stop)
       echo -n "Stopping Google Cloud Print: "
