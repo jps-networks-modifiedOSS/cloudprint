@@ -81,6 +81,8 @@ class REST:
         if self.debug:
             print data
         if resp.status != 200:
+            if "InvalidSecondFactor" in data:
+                 raise REST.RESTException('2-Step','403','You have 2-Step authentication enabled on your account. \n\nPlease visit https://www.google.com/accounts/IssuedAuthSubTokens to generate an application-specific password.')
             try:
                 error = self.CONTENT_DECODE[content_type](data)
                 raise REST.RESTException(error['Name'], error['Code'], error['Message'])
