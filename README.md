@@ -34,7 +34,10 @@ Install
 ---------------------------------------------------
 
 ::
-
+  Install from PIP package repository:
   pip install cloudprint
+  
+  Install local version (e.g. after cloning from Git):
+  python setup.py install
 
 It might be that you first need to install package *python-pip* (e.g. apt-get install python-pip)
