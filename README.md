@@ -36,3 +36,5 @@ Install
 ::
 
   pip install cloudprint
+
+It might be that you first need to install package *python-pip* (e.g. apt-get install python-pip)
