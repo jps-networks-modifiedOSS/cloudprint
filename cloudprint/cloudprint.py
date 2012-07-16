@@ -14,8 +14,6 @@ import stat
 import sys
 import getopt
 
-#
-
 SOURCE = 'Armooo-PrintProxy-1'
 PRINT_CLOUD_SERVICE_ID = 'cloudprint'
 CLIENT_LOGIN_URL = '/accounts/ClientLogin'
