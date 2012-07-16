@@ -450,11 +450,7 @@ def main():
         
         app = App(cups_connection=cups_connection,
                   cpp=cpp, printers=printers,
-<<<<<<< HEAD
-                  pidfile_path=os.path.abspath(pidfile))
-=======
                   pidfile_path=os.path.abspath(pidfile_path))
->>>>>>> 9ca29100e39b935543df0edc5e2f0f19d7974eb0
         sys.argv=[sys.argv[0], 'start']
         daemon_runner = runner.DaemonRunner(app)
         daemon_runner.do_action()
